@@ -1,9 +1,9 @@
 
 # Assuming your file is named 'motif_results.csv'
-motif_data8 <- read.csv('~/400sw_MOTIFs_JASPAR/combined_motif_results_8.csv')
+motif_data <- read.csv('~/you_input.csv')
 
 # Group by TF and calculate summary statistics
-tf_summary <- aggregate(relScore ~ TF, data = motif_data8, 
+tf_summary <- aggregate(relScore ~ TF, data = motif_data, 
                         FUN = function(x) c(sum = sum(x),
                                             count = length(x),
                                             mean = mean(x),
@@ -36,4 +36,4 @@ mzf1_sites <- subset(motif_data8, TF == "MZF1(var.2)",
 print(mzf1_sites)
 
 #Save summary to csv
-write.csv (tf_summary,'~/400sw_MOTIFs_JASPAR/motif_score8.csv')
+write.csv (tf_summary,'your_output.csv')
