@@ -1,0 +1,127 @@
+######MOTIF SCORE FROM RDS#########
+# Load required packages
+library(dplyr)
+library(tidyr)
+library(JASPAR2020)
+library(GenomicRanges)
+library(Biostrings)
+library(TFBSTools)
+
+# 1) Read in the RDS file (which has 40 lists)
+results <- readRDS("JASPAR_MOTIRscan_result.rds")
+# Your vectors defining which indices are negative or positive
+negative_lists <- c(2,3,4,5,6,7,10,11,12,14,15,16,22,23,24,25,28,29,30,31,39,40)
+positive_lists <- c(1,8,9,13,17,18,19,20,21,26,27)
+tss_lists <- c(32,33,34,35,36,37,38)
+
+# Ensure your 'results' list has length 40
+length(results)
+# [1] 40
+
+# Initialize a character vector to hold group assignments
+region_labels <- character(length(results))
+
+# Assign "negative" to the specified indices
+region_labels[negative_lists] <- "negative"
+
+# Assign "positive" to the specified indices
+region_labels[positive_lists] <- "positive"
+
+# Check how many were labeled negative vs. positive
+table(region_labels)
+ 
+process_one_list <- function(site_set_list) {
+  processed_dfs <- list()
+  
+  for(i in seq_along(site_set_list)) {
+    # Extract data from SiteSet object
+    tf_id <- names(site_set_list)[i]
+    tf_name <- site_set_list[[i]]@pattern@name
+    rel_scores <- relScore(site_set_list[[i]])  # Using the relScore method
+    positions <- site_set_list[[i]]@views
+    
+    # Create data frame
+    df <- data.frame(
+      TF = tf_name,
+      relScore = rel_scores,     # Using the built-in relScore method
+      start = start(positions),
+      end = end(positions)
+    )
+    
+    df$region <- i
+    
+    processed_dfs[[i]] <- df
+  }
+  
+  # Combine all data frames within the function
+  combined_df <- do.call(rbind, processed_dfs)
+  
+  # Reset row names
+  rownames(combined_df) <- NULL
+  
+  return(combined_df)
+}
+
+#test with one site_set_item
+processed_df1 <- process_one_list(results[[1]])
+head(processed_df1)
+
+# Create a list to store all 40 combined dataframes
+all_dfs <- list()
+
+# Process each of the 40 lists
+for(i in seq_along(results)) {
+  all_dfs[[i]] <- process_one_list(results[[i]])
+  # Add list identifier
+  all_dfs[[i]]$list_id <- i
+  # Add group information 
+  all_dfs[[i]]$group <- region_labels[i]
+}
+
+# Combine all 40 dataframes into one final dataframe
+final_df <- do.call(rbind, all_dfs)
+# Reset row names
+rownames(final_df) <- NULL
+
+# Look at the first few rows
+head(final_df)
+
+# Compute summary statistics per TF, separately for negative vs. positive
+library(dplyr)
+library(tidyr)
+
+tf_summary <- final_df %>%
+  group_by(TF, group) %>%
+  summarize(
+    sum_relScore   = sum(relScore, na.rm = TRUE),
+    count          = n(),
+    mean_relScore  = mean(relScore, na.rm = TRUE),
+    min_relScore   = min(relScore, na.rm = TRUE),
+    max_relScore   = max(relScore, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+# Pivot to wide format
+tf_summary_wide <- tf_summary %>%
+  pivot_wider(
+    names_from = group,
+    values_from = c(sum_relScore, count, mean_relScore, min_relScore, max_relScore),
+    values_fill = 0  # fill missing groups with zero
+  )
+
+# Calculate enrichment ratio
+tf_summary_wide <- tf_summary_wide %>%
+  mutate(
+    enrichment_ratio = ifelse(
+      sum_relScore_negative == 0, 
+      NA, 
+      sum_relScore_positive / sum_relScore_negative
+    )
+  )
+
+# Look at the results
+head(tf_summary_wide)
+
+#save results
+write.csv (final_df, "your_output.csv")
+write.csv (tf_summary_wide, "your_output_wide.csv")
