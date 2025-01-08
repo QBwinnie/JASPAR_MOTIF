@@ -14,8 +14,8 @@ library(Biostrings)
 library(BSgenome.Hsapiens.UCSC.hg19)
 library(TFBSTools)
 
-# Define the path to your CSV file
-csv_file <- "~/desktop/400bpSWwithSequence.csv"
+# Define the path to your BED file (I had mine in CSV)
+csv_file <- "~/your_input.csv"
 
 # Read the CSV file
 sequences_df <- read.csv(csv_file, stringsAsFactors = FALSE)
